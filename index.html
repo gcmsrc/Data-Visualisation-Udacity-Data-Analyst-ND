@@ -9,16 +9,27 @@
 	<script src="https://d3js.org/d3-color.v1.min.js"></script>
 	<script src="https://d3js.org/d3-interpolate.v1.min.js"></script>
 	<script src="https://d3js.org/d3-scale-chromatic.v1.min.js"></script>
-	<script type="text/javascript" src='support.js'></script>
+
+	<script type="text/javascript" src='setup.js'></script>
+	<script type="text/javascript" src='format.js'></script>
+	<script type="text/javascript" src='utility.js'></script>
+	<script type="text/javascript" src='parse.js'></script>
+	<script type="text/javascript" src='ttip.js'></script>
+	<script type="text/javascript" src='create.js'></script>
+	<script type="text/javascript" src='extract.js'></script>
+	<script type="text/javascript" src='convert.js'></script>
+	<script type="text/javascript" src='legend.js'></script>
+
 	<script type="text/javascript" src='trends.js'></script>
 	<script type="text/javascript" src='map.js'></script>
+	
 	<link href="https://fonts.googleapis.com/css?family=Roboto+Condensed:300,300i,400,400i,700" rel="stylesheet">
 	<link rel="stylesheet" type="text/css" href="newstyle.css">
 </head>
 <body>
 	
 	<!--Tooltip as per Scott Murray-->
-	<div id="tooltip" class='hidden focus-bar map'>
+	<div id="tooltip" class='hidden trend map'>
 		<p><span id='tooltip-title'></span></p>
 		<p><span id='tooltip-value'></span></p>
 	</div>

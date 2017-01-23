@@ -20,7 +20,7 @@
 	fill: #428bca;
 }
 
-.bar.focus {
+.bar.highlight {
 	fill: #ffbf00;
 }
 
@@ -28,6 +28,29 @@
 	stroke: #beb7b7;
 	stroke-width: 0.75;
 	fill: white;
+}
+
+.focus-circle {
+	fill: red;
+	stroke: white;
+	stroke-width: 2;
+}
+
+.focus-line {
+	fill: none;
+	stroke: rgb(8,52,112);
+	stroke-width: 2;
+}
+
+.focus-x {
+	font-family: 'Roboto Condensed', sans-serif;
+	font-weight: 300i;
+	font-size: 10px;
+}
+
+.focus-y line{
+  shape-rendering: crispEdges;
+  stroke: #000;
 }
 
 .hidden {
@@ -111,7 +134,16 @@
 	height: auto;
 }
 
-#tooltip.focus-bar {
+#tooltip.map{
+	position: absolute;
+	text-align: left;
+	height: auto;
+	padding: 10px;
+	background-color: none;
+	pointer-events: none;
+}
+
+#tooltip.trend {
 	text-align: center;
 	padding: 10px;
 	background-color: white;
@@ -124,7 +156,7 @@
 	border-radius: 10px;
 }
 
-#tooltip.focus-bar p {
+#tooltip p {
 		margin: 0;
 		font-family: 'Roboto Condensed', sans-serif;
 		font-size: 16px;
