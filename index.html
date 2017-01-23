@@ -1,446 +1,551 @@
 <!DOCTYPE html>
 <html>
 <head>
-	<title>Chart</title>
+	<meta charset="utf-8">
+	<title>DAND - Data Viz</title>
 	<script src="https://d3js.org/d3.v3.min.js"></script>
+	<script src="https://d3js.org/colorbrewer.v1.min.js"></script>
+	<!-- https://github.com/d3/d3-scale-chromatic -->
+	<script src="https://d3js.org/d3-color.v1.min.js"></script>
+	<script src="https://d3js.org/d3-interpolate.v1.min.js"></script>
+	<script src="https://d3js.org/d3-scale-chromatic.v1.min.js"></script>
+	<script type="text/javascript" src='support.js'></script>
+	<script type="text/javascript" src='trends.js'></script>
+	<script type="text/javascript" src='map.js'></script>
 	<link href="https://fonts.googleapis.com/css?family=Roboto+Condensed:300,300i,400,400i,700" rel="stylesheet">
-	<svg class="chart"></svg>
-	<style type="text/css">
-
-		.axis path,
-		.axis line {
-		  fill: none;
-		  stroke: #000;
-		  shape-rendering: crispEdges;
-		}
-
-		.axis path {
-		  display: none;
-		}
-
-		.axis {
-			font-family: 'Roboto Condensed', sans-serif;
-			font-weight: 300i;
-		}
-
-		.title {
-			font-family: 'Roboto Condensed', sans-serif;
-			font-weight: 700;
-			font-size: 18px;
-		}
-
-		.unselected {
-			fill: #678ffb;
-		}
-
-		.selected {
-			fill: orange;
-		}
-
-		#tooltip {
-			position: absolute;
-			text-align: center;
-			height: auto;
-			padding: 10px;
-			background-color: white;
-			pointer-events: none;
-			border-style: solid;
-			border-color: black;
-			border-width: 1px;
-			opacity: 0.9;
-			-webkit-border-radius: 10px;
-			-moz-border-radius: 10px;
-			border-radius: 10px;
-		}
-
-		#tooltip.hidden {
-			display: none;
-		}
-
-		#tooltip p {
-				margin: 0;
-				font-family: 'Roboto Condensed', sans-serif;
-				font-size: 16px;
-				line-height: 20px;
-			}
-
-		#tooltip-title {
-			font-weight: 700;
-		}
-
-		.legend_text {
-			text-anchor: middle;
-			font-family: 'Roboto Condensed', sans-serif;
-			font-weight: 400;
-			font-size: 13px;
-		}
-
-		.button {
-			text-anchor: end;
-			font-family: 'Roboto Condensed', sans-serif;
-			font-weight: 400;
-		}
-
-	</style>
+	<link rel="stylesheet" type="text/css" href="newstyle.css">
 </head>
 <body>
-
-	<div id="tooltip" class='hidden'>
-		<p><span id='tooltip-title'>Prova</span></p>
-		<p><span id='tooltip-value'>Prova</span></p>
+	
+	<!--Tooltip as per Scott Murray-->
+	<div id="tooltip" class='hidden focus-bar map'>
+		<p><span id='tooltip-title'></span></p>
+		<p><span id='tooltip-value'></span></p>
 	</div>
-
 
 	<script type="text/javascript">
 
-		//Margins as per convention from bl.ocks.org
-		var margin = {top: 20, right: 10, bottom: 20, left: 10};
-		var padding = {top: 20, right: 20, bottom: 20, left:20};
-		var width = 960 - margin.left - margin.right,
-    	    height = 500 - margin.top - margin.bottom,
-    	    inner_width = width - padding.left - padding.right,
-    	    inner_height = height - padding.top - padding.bottom,
-    	    outer_width = width + margin.left + margin.right,
-    	    outer_height = height + margin.top + margin.bottom,
-    	    width_tooltip = 80;
+    	//----------------------------------------------------------//
 
-		// Initialise chart svg objcet
+		// *** CHART AND DRAWING AREA ***
+		// Add chart
 		var chart = d3.select("body")
-					  .select('.chart')
-					  .attr("width", outer_width)
-					  .attr("height", outer_height);
+					  .append("svg")
+					  .attr("width", outerWidth)
+					  .attr("height", outerHeight)
+					  .append('g');
 
-		// Append chart buttons
-		var buttons = ['visits', 'purpose']
+
+		// TEST: Append chart buttons
+		var buttons = ['visits', 'purpose', 'origin'];
 		chart.selectAll('text')
 			 .data(buttons)
 			 .enter()
 			 .append('text')
 			 .attr('class', 'button')
 			 .attr('x', function(d, i) {
-			 	return 0.7 * inner_width + i * 60;
+			 	return 0.7 * innerWidth + i * 60;
 			 })
 			 .attr('y', 1.2 * padding.top)
 			 .attr('id', function(d) {return d;})
-			 .text(function(d) {return d;})
-					  
-    	// Define scales
-    	var xScale = d3.scale.ordinal()
-					   .rangeRoundBands([3 * padding.left, outer_width - 3 * padding.right], 0.05);
-		var yScale = d3.scale.linear();							 
-		var z = d3.scale.category10();
+			 .text(function(d) {
+			 	return d;
+			 });
 
-		// Formatting functions
-		var format_decimal = d3.format('.2f');
-		var format_percentage = d3.format(',%');
-		var format_visit = function(value) {
-			return format_decimal(parseFloat(value / 1e3)) + ' M';
-		};
+		// Add drawing area
+	    var area = chart.append('g')
+	    		        .attr('class', 'area');
+		// Append title
+		chart.append('g')
+		     .attr('id', 'title')
+		     .attr('transform', 'translate(' + (3 * padding.left) + ',' + (1.3 * padding.top) + ')')
+		     .append('text')
+		     .style("text-anchor", "start");
 
-		// Define the div for the tooltip
-		var div = d3.select("body").append("div")	
-		    .attr("class", "tooltip")				
-		    .style("opacity", 0);
+		// Add click behaviour to buttons
+		d3.select('#visits')
+		  .on('click', function() {
+		  	trends(1)
+		  });
+		d3.select('#purpose')
+		  .on('click', function() {
+		  	trends(2)
+		  });
 
-		// Define purpose types
-		var categories = ["Holiday", "VFR", "Business", "Study", "Miscellaneous"];
+		d3.select('#origin')
+		  .on('click', function() {
+		  	map();
+		  })
 
-		// Define function to format values properly
-		function parse(d) {
-			d.visits = +d.visits;
-			categories.forEach(function(c) {
-				d[c] = +d[c];
+		// This function draws charts for points 3 and 4
+		/*var map = function() {
+
+			// Remove elements in area
+			remove_object('*', all=true)
+			
+			// Define color function
+			var color = d3.scale.linear()
+					  	  .range([0,1]);
+
+			// Change title
+			changeTitle('International Visitors to London by Country of Origin');
+
+			// File downloaded from natural earth data as per Scott Murray
+			// File was simplified with mapshaper
+			// coropleth chapter from Scott Murray
+			d3.csv('dataset_geo.csv', parseMap, function(data) {
+				
+				// Extract years
+				var years = d3.set();
+
+				data.forEach(function(d) {
+					years.add(d.year)
+				})
+
+				var years = years.values();
+
+				// Nesting by market, i.e. by country of origin
+				// https://github.com/d3/d3-collection#nests
+				var nested = d3.nest()
+							   .key(function(d) {
+							   		return d.market;
+							   })
+							   .entries(data)
+
+				// Update color domain
+				color.domain([0,
+					roundUpThousand(d3.max(nested, function(d) {
+						return d3.max(d.values, function(x) {
+							return +x.visits;
+						});
+					}))]);
+				
+				// Transform nested from array of objects to object
+				nested.forEach(function(x) {
+					
+					// Empty object
+					var rv = {};
+
+					x.values.forEach(function(d, i) {
+						rv[d.year] = {
+							visits: d.visits,
+							spend: d.spend,
+							rel_spend: d.spend / d.visit
+						}
+					});
+
+					// Replace array with object
+					x.values = rv;
+				})
+
+				// Load json data (map)
+				d3.json('coord_names_only.json', function(json) {
+
+					// Enrich map with nested data
+					for (var i = 0; i < nested.length; i++) {
+
+						var dataCountry = nested[i].key;
+						var dataValues = nested[i].values;
+						
+						for (var j = 0; j < json.features.length; j++) {
+							
+							var jsonCountry = json.features[j].properties.name;
+
+							if (dataCountry == jsonCountry) {
+
+								json.features[j].properties.visitors = dataValues;
+								break;
+							}
+						}
+					}
+
+					// *** Bind data ***
+					var countries = area.selectAll('path')
+										.data(json.features)
+										.enter()
+										.append('path')
+										.attr('d', path)
+										.attr('class', 'map country')
+										.style('stroke', 'white')
+										.style('stroke-width', 0.75)
+										.style('fill', 'white');
+					
+					// Append year box
+					var year_box = area.append('text')
+									   .attr('x', 4 * padding.right)
+									   .attr('y', 0.88 * outerHeight)
+									   .attr('class', 'year map')
+									   .style('opacity', 0)
+
+					// *** TEST ***
+					// *************************
+					var focus = area.append('g')
+								    .attr('id', 'focus')
+								    .attr('class', 'hidden map')
+								    .attr('transform', 'translate(' + 4 * padding.right + ',' + 0.63 * outerHeight + ')')
+
+					var yearAxis = d3.svg.axis()
+									 .orient('bottom')
+									 .innerTickSize(0)
+									 .tickValues([2002, 2015])
+									 .tickPadding(5)
+
+					focus.append('g')
+    		   			 .attr('class', 'axis focus-x');
+					
+					var xScale = d3.scale.ordinal()
+					   .rangeRoundBands([5, 130], 0.05)
+					   .domain(years)
+
+					yearAxis.scale(xScale);
+					area.select('.focus-x')
+			    		.call(yearAxis);
+
+
+					focus.append('g')
+	 					 .attr('class', 'axis focus-y');
+
+			    	var yScale = d3.scale.linear()
+			    				   .range([-30,0]);
+
+			    	var valueAxis = d3.svg.axis()
+									  .orient('left')
+									  .ticks(0);
+
+			    	var countryData = function(state) {
+			    		return area.selectAll('.country')
+			    		           .filter(function(d) {
+			    		           		return d.properties['name'] == state;
+			    		           	}).data()[0].properties.visitors;
+			    	};*/
+
+
+			    	// *************************
+					// *** END TEST ***
+
+					// Define update function
+					/*var update_map = function(year) {
+
+						// Update fill
+						countries.transition()
+								 .duration(50)
+								 .style('stroke', '#beb7b7')
+								 .style('fill', function(d) {
+
+								 	// Check if visitors and year data is available
+								 	if(d.properties.visitors) {
+								 		if(d.properties.visitors[year]) {
+								 			var dataColor = color(+d.properties.visitors[year].visits);
+								 			return d3.interpolateBlues(dataColor);
+								 		} else {
+								 			return 'white'
+								 		}
+								 	} else {
+								 		return 'white'
+								 	}					   	
+								 })
+
+						// Update year box
+						year_box.transition()
+								.duration(50)
+								.text(year)
+								.style('opacity', 1);
+
+						// Update tootltip value
+						d3.select('#tooltip-value')
+						  .text(function() {
+						  	if (this.textContent != '') {
+
+						  		var state = d3.select('#tooltip-title').node().textContent;
+						  	
+						  		var stateData = countryData(state);
+						  		
+						  		if (stateData[year]) {
+						  			d3.select(this)
+						  			  .transition()
+						  			  .duration(500)
+						  			  .text(formatMap(stateData[year].visits))
+						  		} else {
+						  			d3.select(this)
+						  			  .transition()
+						  			  .duration(500)
+						  			  .text('N/A');
+						  		}
+
+						  	}
+						 });
+						 
+						 // Update circle (if any)
+						 if(focus.select('circle')[0][0]) {
+						 	focus.select('circle')
+						 		 .transition()
+						 		 .duration(50)
+						 		 .attr('cx', xScale(year) + xScale.rangeBand()/2)
+						 		 .attr('cy', function() {
+						 		 	
+						 		 	var state = d3.select('#tooltip-title').node().textContent;
+						 		 	var stateData = countryData(state)
+
+						 		 	if(stateData[year]){
+						 		 		return yScale(+stateData[year].visits);
+						 		 	}
+						 		 	
+
+						 		 })
+						 		 .style('fill', function() {
+						 		 	var state = d3.select('#tooltip-title').node().textContent;
+						 		 	var stateData = countryData(state)
+
+						 		 	if(!stateData[year]) {
+						 		 		return 'white';
+						 		 	} else {
+						 		 		return 'red';
+						 		 	}
+
+						 		 	
+						 		 })
+						 }
+
+						// Behaviour of clicking on map
+						//debugger;
+
+						// Update mouseover behaviour
+						countries.on('mouseover', function(d) {
+
+									// Check if visitors and year data is available
+									if (d.properties.visitors) {
+										if (d.properties.visitors[year]) {
+											// Change the cursor
+											d3.select(this)
+											.style('cursor', 'pointer');
+										}
+									}
+							      })
+								  .on('click', function(d) {
+
+								  	var previous = null;
+								  	
+								  	if (d3.select('#tooltip-title')[0][0].textContent != '') {
+								  		previous = d3.select('#tooltip-title')[0][0].textContent;
+								  	}
+	  								
+	  								var current = d.properties.name;
+								  	// Check if selected
+								  	
+								  	var active = this.active? true:false;
+								  	console.log(previous, current, active)
+									
+									// Check if visitors and year data is available
+									if (d.properties.visitors) {
+
+										if (d.properties.visitors[year]) {
+											
+											// Change tooltip
+											d3.select("#tooltip")
+											.style("left", (4 * padding.right) + "px")
+											.style("top", (0.68 * outerHeight) + 'px')
+											.style("width", '200px')
+											.classed('map', true)
+											.classed('trend', false)
+
+											// Add tooltip content
+											d3.select('#tooltip-title')
+											.text(current);
+
+											d3.select("#tooltip-value")
+											.text(formatMap(d.properties.visitors[year].visits));
+
+											// Make tooltip visible
+											//http://bl.ocks.org/d3noob/5d621a60e2d1d02086bf
+
+											// TESTING
+											var state = d.properties.name;
+											var stateData = countryData(state);
+
+											var test = Object.keys(stateData)
+											     			 .map(function(key) {
+											     			 	return {
+											     			 		'x':key,
+											     			 		'y':stateData[key].visits
+											     			 	}
+											     			 })
+											yScale.domain([
+												d3.max(test, function(d) {
+													return +d.y;
+												}),
+												d3.min(test, function(d) {
+													return +d.y;
+												})]);
+
+											valueAxis.scale(yScale);
+											focus.select('.focus-y')
+			    								.call(valueAxis);
+
+											var testLine = d3.svg.line()
+							     							.x(function(d) { return xScale(d.x) + xScale.rangeBand() / 2; })
+							     							.y(function(d) { return yScale(+d.y); });
+						     			
+
+							     			if (previous!=current) {
+							     				
+							     				focus.select('.focus-line')
+							     					 .remove();
+
+							     				focus.select('.focus-circle')
+							     					 .remove();
+
+							     				focus.append('path')
+							     			     .attr('d', testLine(test))
+							     			     .attr('class', 'focus-line')
+
+							     			    focus.append('circle')
+							     			    	 .attr('r', 4)
+							     			    	 .attr('class', 'focus-circle')
+							     			    	 .attr('cx', function() {
+							     			    	 	return xScale(year) + xScale.rangeBand() / 2;
+							     			    	 })
+							     			    	 .attr('cy', function() {
+							     			    	 	return yScale(stateData[year].visits)
+							     			    	 })
+							     			    	 .style('fill', 'red')
+							     			    	 .style('stroke', 'white')
+							     			    	 .style('stroke-width', 2)
+
+							     			    d3.select('#focus')
+												  	.classed('hidden', false);
+
+												d3.select('#tooltip')
+												  .classed('hidden', false);
+
+							     			} else {
+							     				
+							     				focus.select('.focus-line')
+							     					 .remove();
+
+							     				focus.select('.focus-circle')
+							     					 .remove();
+
+							     				d3.select('#focus')
+												  	.classed('hidden', true);
+
+												d3.select('#tooltip')
+												  .classed('hidden', true);
+
+												d3.select('#tooltip-title')
+												  .text('');					     				
+							     			}
+
+											// END TESTING
+											this.active = !active;	
+
+										} /*else  {
+											
+											if (d3.select('#tooltip-title').textContent != '') {
+												
+												d3.select('#tooltip')
+													  .classed('hidden', active);
+
+												d3.select('#focus')
+												  .classed('hidden', active);
+											}
+										}*/
+							/*		}
+								  });
+					};
+
+					var year = '2015'			
+					update_map(year);
+
+					year_box.on('mouseover', function() {
+
+						// Change cursor
+						d3.select(this)
+						  .style('cursor', 'ew-resize');
+
+						var box = year_box.node().getBBox();
+
+						var yearScale = d3.scale.linear()
+										  .domain([2002, 2015])
+										  .range([box.x + 5 , box.x + box.width - 5]);
+
+						year_box.on('mousemove', function() {
+
+							// Cancel current transition if any
+							area.transition().duration(0);
+
+							var value = Math.round(yearScale.invert(d3.mouse(this)[0]));
+
+							if(value < 2002) {
+								return 2002;
+							} else if (value > 2015) {
+								return 2015
+							}
+
+							year_box.transition()
+									.duration(150)
+									.text(value);
+	
+							update_map(value.toString());
+						})
+
+					})
+
+					// Add legend
+					//http://bl.ocks.org/lucguillemot/37cc6eccbdd365556feb
+					var legend = area.append('g')
+									 .attr('class', 'map legend')
+									 .attr('transform', 'translate(' + (4 * padding.right) + ',' + (0.88 * outerHeight) + ')')
+
+					var newData = [];
+					var legend_width = 150;
+					var divisions = 100;
+				    var sectionWidth = Math.floor(legend_width / divisions);
+
+				    for (var i=0; i < legend_width; i+= sectionWidth ) {
+				        newData.push(i);
+				    };
+
+				    var legend_scale = d3.scale.linear()
+				    					 .domain([0, newData.length - 1])
+				    					 .range([0, 1]);
+
+				    legend.selectAll('rect')
+				        .data(newData)
+				        .enter()
+				        .append('rect')
+				            .attr("x", function(d) { return d; })
+				            .attr("y", 10)
+				            .attr("height", 10)
+				            .attr("width", sectionWidth)
+				            .attr('fill', function(d, i) {
+				            	var dataColor = legend_scale(i);
+				            	return d3.interpolateBlues(dataColor);
+				            });
+
+				    legend.append("text")
+				    	  .attr('class', 'legend-range')
+				    	  .text(0)
+				    	  .attr("transform","translate(" + 2.5 +',' + 35 + ')')
+
+				    legend.append("text")
+				    	  .attr('class', 'legend-range')
+				    	  .text(formatMap(color.domain()[1]))
+				    	  .attr("transform","translate(" + 127.5 + ',' + 35 + ')')
+				})
+			
+
+				
+
+
 			})
-			return d;
-		};
+		};*/
 
-		// Load data/ main function
-		var data = d3.csv('dataset.csv', parse, function(data) {
+		
 
-			// Define x axis
-			var xAxis = d3.svg.axis()
-						  /*.scale(xScale)*/
-						  .orient('bottom')
-						  .innerTickSize(0);
-			// Append x axis
-    		chart.append('g')
-    		   .attr('class', 'x axis')
-    		   .attr('transform', 'translate(0,' + (inner_height + padding.bottom) + ')')
-
-    		// Define y axis
-			var yAxis = d3.svg.axis()
-							  .orient('left')
-							  .innerTickSize(0)
-							  .ticks(4);
-			// Append y axis
-    		chart.append('g')
-    			 .attr('class', 'y axis')
-    			 .attr('transform', 'translate(' + 2.5 * padding.left + ',0)')
-
-    		chart.append('g')
-    		     .attr('class', 'title')
-    		     .append('text')
-    		     .attr('x', 3 * padding.left)
-    		     .attr('y', 1.2 * padding.top)
-    		     .style("text-anchor", "start");
-
-
-			// Define draw_visits function
-			var draw_visits = function() {
-
-				chart.selectAll('.layer')
-				     .remove();
-
-				chart.selectAll('.legend')
-					 .remove();
-
-				//Add chart title
-	    		chart.select('.title')
-	    		     .select('text')
-	    		 	 .text('Number of International Visitors to London (in Millions)');
-
-				// Assign scales to domain
-				xScale.domain(data.map(function(d) {return d.year; }));
-				yScale.range([inner_height, 2 * padding.top])
-				      .domain([0, d3.max(data, function(d) {return d.visits; })]);
-
-				// Format yAxis
-				yAxis.tickFormat(function(d) {return Math.round(d / 1e3) + 'M'; });
-
-				// Update axis
-				xAxis.scale(xScale);
-				yAxis.scale(yScale);
-				
-				// Call axis functions on  axis object
-				d3.select('.x')
-				  .call(xAxis);
-
-				d3.select('.y')
-				  .transition()
-				  .duration(500)
-				  .call(yAxis);
-
-				// Bind data
-				var bars = chart.selectAll('rect')
-				    		    .data(data);
-
-				// Update enter selection
-				bars.enter()
-				    .append('rect')
-				    .attr('class', 'bar visits')
-				    .attr('x', function(d) {
-				    	
-				    	return xScale(d.year);
-				    })
-				    .attr('width', xScale.rangeBand())
-				    .attr('y', inner_height)
-				    .attr('height', 0)
-				    .style('fill', '#678ffb');
-
-				bars.style('fill', '#678ffb');
-				
-				// Update and Enter
-				bars.transition()
-					.delay(function(d, i) {
-						return i / data.length * 500;
-					})
-				    .duration(500)
-				    .attr('y', function(d) {
-				    	return yScale(d.visits);
-				    })
-				    .attr('height', function(d) {
-				    	return inner_height - yScale(d.visits);
-				    });
-
-				// Remove exit
-				bars.exit()
-					.remove();
-
-				// Tooltip when overing over bars
-				chart.selectAll('rect')
-				     .on('mouseover', function(d) {
-				     	
-				     	// Extract x position
-				     	var x_pos = parseFloat(d3.select(this).attr('x'));
-
-				     	// Center the tooltip within the bar
-				     	d3.select("#tooltip")
-							.style("left", (x_pos - (width_tooltip - xScale.rangeBand()) / 2) + "px")
-							.style("top", (inner_height - 3.5 * padding.bottom) + 'px')
-							.style("width", width_tooltip + 'px')
-
-						// Add title to tooltip
-						d3.select('#tooltip-title')
-						  .text(d.year);
-
-						// Add value to tooltip
-						d3.select("#tooltip-value")
-						  .text(format_visit(d.visits));
-
-						// Make tooltip visible
-						d3.select('#tooltip')
-						  .classed('hidden', false);
-
-						// Format bar chart as selected
-						d3.select(this)
-						  .style('fill', 'orange');
-
-				     })
-				     .on('mouseout', function() {
-				     	// Make tooltip visible
-						d3.select('#tooltip')
-						  .classed('hidden', true);
-
-						// Format bar chart as selected
-						d3.select(this)
-						  .style('fill', '#678ffb');
-				     })
-			};
-
-			// Define draw_purposes function
-			var draw_purposes = function() {
-
-				// Define purporses and categories
-				var purposes = {"Holiday" : "Holiday",
-							    "VFR" : "Visiting Family",
-							    "Business" : "Business",
-							    "Study" : "Study",
-							    "Miscellaneous" : "Other"};
-
-				var categories = Object.keys(purposes);
-
-				// Change chart title
-				chart.select('.title')
-				     .select('text')
-				     .text('Purpose of International Visits to London (% of visitors)')
-
-				// Define layers
-				// Source Mike Bostock d3 stacked bar chart
-				var layers = d3.layout.stack()(categories.map(function(c) {
-						return data.map(function(d) {
-							return {x: d.year, y: +d[c], category:c} ;
-					})
-				}));
-
-				var max_percentage = d3.max(layers[layers.length - 1], function(d) {return d.y + d.y0;});
-
-				// Re-scale yScale
-				yScale.range([inner_height, 6 * padding.top])
-				      .domain([0, max_percentage]);
-
-				// Re-format yAxis
-				yAxis.tickFormat(function(d) {return format_percentage(d); });
-
-				// Update yAxis
-				chart.select('.y')
-				     .transition()
-				     .duration(500)
-				     .call(yAxis);
-
-				// Make existing bars all equal
-				chart.selectAll('.bar')
-				     .transition()
-				     .duration(500)
-				     .attr('y', yScale(max_percentage))
-				     .attr('height', inner_height - yScale(max_percentage))
-				     .each('end', function() {
-				     	d3.select(this).remove();
-				     });
-
-				// Bind data to layer
-				var layer = chart.selectAll(".layer")
-								 .data(layers);
-
-				// Update enter selection
-				layer.enter()
-				     .append("g")
-				     .attr("class", "layer")
-				     .attr('id', function(d) {return d[0].category;})
-				     .style("fill", function(d, i) { return z(i); });
-
-				/*chart.selectAll('.visits')
-				     .remove();*/
-
-				layer.selectAll('rect')
-				     .data(function(d) {return d; })
-				     .enter()
-				     .append('rect')
-				     .attr('x', function(d) {return xScale(d.x); })
-				     .attr('y', function(d) {return yScale(d.y0); })
-				     .attr('width', xScale.rangeBand())
-				     .attr('height', 0)
-				     .style('display', 'none')
-				     .transition()
-				     .duration(500)
-				     .attr('y', function(d) {return yScale(d.y0 + d.y); })
-				     .attr('height', function(d) {return yScale(d.y0) - yScale(d.y + d.y0) ;})
-				     .style('display', 'block')
-
-				//Add legend
-				var legend = chart.append('g')
-								  .attr('class', 'legend')
-								  .selectAll('g')
-								  .data(categories)
-								  .enter()
-								  .append('g');
-
-				// Starting position for legend
-				var legend_start = xScale(d3.min(data, function(d) {return d.year; })) + xScale.rangeBand() / 2;
-				var distance = 80;
-				
-				legend.append('circle')
-					  .attr('cx', function(d, i) {
-					  	return legend_start +  i * distance;
-					  })
-					  // Every circle is classed as the name of the categories and legend_circle
-					  .attr('class', function(d, i) {
-					  	return categories[i] + ' legend_circle';
-					  })
-					  .attr('cy', 4 * padding.top)
-					  .attr('r', 10)
-					  .style('fill', function(d, i) {
-					  	return z(i);
-					  });
-
-				legend.append('text')
-					  .attr('class', 'legend_text')
-				      .attr('x', function(d, i) {
-					  	return legend_start +  i * distance;
-					  })
-					  .attr('y', 3 * padding.top)
-					  .text(function(d) {
-					  	return purposes[d];
-					  });
-
-				// Apply mouseover effects to legend_circle
-				chart.selectAll('.legend_circle')
-					 .on('mouseover', function() {
-					 	
-					 	var id = this.classList[0];
-
-					 	chart.selectAll('rect')
-					 	     .style('opacity', function(d) {
-					 	     	if (d.category !== id) {
-					 	     		return 0.3;
-					 	     	}
-					 	     })
-					 })
-					 .on('mouseout', function() {
-					 	chart.selectAll('rect')
-					 		 .style('opacity', 1);
-					 })
-
-
-
-			};
-
-			draw_visits(data);
-
-			d3.select('#visits').on('click', draw_visits);
-			d3.select('#purpose').on('click', draw_purposes);
-			/*d3.select('#remove').on('click', remove_rects);*/
-
-		});
+		/*d3.select('#origin')
+		  .on('click', function() {
+		  	map();
+		  });*/
 
 	</script>
 </body>
