@@ -1,0 +1,447 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<title>Chart</title>
+	<script src="https://d3js.org/d3.v3.min.js"></script>
+	<link href="https://fonts.googleapis.com/css?family=Roboto+Condensed:300,300i,400,400i,700" rel="stylesheet">
+	<svg class="chart"></svg>
+	<style type="text/css">
+
+		.axis path,
+		.axis line {
+		  fill: none;
+		  stroke: #000;
+		  shape-rendering: crispEdges;
+		}
+
+		.axis path {
+		  display: none;
+		}
+
+		.axis {
+			font-family: 'Roboto Condensed', sans-serif;
+			font-weight: 300i;
+		}
+
+		.title {
+			font-family: 'Roboto Condensed', sans-serif;
+			font-weight: 700;
+			font-size: 18px;
+		}
+
+		.unselected {
+			fill: #678ffb;
+		}
+
+		.selected {
+			fill: orange;
+		}
+
+		#tooltip {
+			position: absolute;
+			text-align: center;
+			height: auto;
+			padding: 10px;
+			background-color: white;
+			pointer-events: none;
+			border-style: solid;
+			border-color: black;
+			border-width: 1px;
+			opacity: 0.9;
+			-webkit-border-radius: 10px;
+			-moz-border-radius: 10px;
+			border-radius: 10px;
+		}
+
+		#tooltip.hidden {
+			display: none;
+		}
+
+		#tooltip p {
+				margin: 0;
+				font-family: 'Roboto Condensed', sans-serif;
+				font-size: 16px;
+				line-height: 20px;
+			}
+
+		#tooltip-title {
+			font-weight: 700;
+		}
+
+		.legend_text {
+			text-anchor: middle;
+			font-family: 'Roboto Condensed', sans-serif;
+			font-weight: 400;
+			font-size: 13px;
+		}
+
+		.button {
+			text-anchor: end;
+			font-family: 'Roboto Condensed', sans-serif;
+			font-weight: 400;
+		}
+
+	</style>
+</head>
+<body>
+
+	<div id="tooltip" class='hidden'>
+		<p><span id='tooltip-title'>Prova</span></p>
+		<p><span id='tooltip-value'>Prova</span></p>
+	</div>
+
+
+	<script type="text/javascript">
+
+		//Margins as per convention from bl.ocks.org
+		var margin = {top: 20, right: 10, bottom: 20, left: 10};
+		var padding = {top: 20, right: 20, bottom: 20, left:20};
+		var width = 960 - margin.left - margin.right,
+    	    height = 500 - margin.top - margin.bottom,
+    	    inner_width = width - padding.left - padding.right,
+    	    inner_height = height - padding.top - padding.bottom,
+    	    outer_width = width + margin.left + margin.right,
+    	    outer_height = height + margin.top + margin.bottom,
+    	    width_tooltip = 80;
+
+		// Initialise chart svg objcet
+		var chart = d3.select("body")
+					  .select('.chart')
+					  .attr("width", outer_width)
+					  .attr("height", outer_height);
+
+		// Append chart buttons
+		var buttons = ['visits', 'purpose']
+		chart.selectAll('text')
+			 .data(buttons)
+			 .enter()
+			 .append('text')
+			 .attr('class', 'button')
+			 .attr('x', function(d, i) {
+			 	return 0.7 * inner_width + i * 60;
+			 })
+			 .attr('y', 1.2 * padding.top)
+			 .attr('id', function(d) {return d;})
+			 .text(function(d) {return d;})
+					  
+    	// Define scales
+    	var xScale = d3.scale.ordinal()
+					   .rangeRoundBands([3 * padding.left, outer_width - 3 * padding.right], 0.05);
+		var yScale = d3.scale.linear();							 
+		var z = d3.scale.category10();
+
+		// Formatting functions
+		var format_decimal = d3.format('.2f');
+		var format_percentage = d3.format(',%');
+		var format_visit = function(value) {
+			return format_decimal(parseFloat(value / 1e3)) + ' M';
+		};
+
+		// Define the div for the tooltip
+		var div = d3.select("body").append("div")	
+		    .attr("class", "tooltip")				
+		    .style("opacity", 0);
+
+		// Define purpose types
+		var categories = ["Holiday", "VFR", "Business", "Study", "Miscellaneous"];
+
+		// Define function to format values properly
+		function parse(d) {
+			d.visits = +d.visits;
+			categories.forEach(function(c) {
+				d[c] = +d[c];
+			})
+			return d;
+		};
+
+		// Load data/ main function
+		var data = d3.csv('dataset.csv', parse, function(data) {
+
+			// Define x axis
+			var xAxis = d3.svg.axis()
+						  /*.scale(xScale)*/
+						  .orient('bottom')
+						  .innerTickSize(0);
+			// Append x axis
+    		chart.append('g')
+    		   .attr('class', 'x axis')
+    		   .attr('transform', 'translate(0,' + (inner_height + padding.bottom) + ')')
+
+    		// Define y axis
+			var yAxis = d3.svg.axis()
+							  .orient('left')
+							  .innerTickSize(0)
+							  .ticks(4);
+			// Append y axis
+    		chart.append('g')
+    			 .attr('class', 'y axis')
+    			 .attr('transform', 'translate(' + 2.5 * padding.left + ',0)')
+
+    		chart.append('g')
+    		     .attr('class', 'title')
+    		     .append('text')
+    		     .attr('x', 3 * padding.left)
+    		     .attr('y', 1.2 * padding.top)
+    		     .style("text-anchor", "start");
+
+
+			// Define draw_visits function
+			var draw_visits = function() {
+
+				chart.selectAll('.layer')
+				     .remove();
+
+				chart.selectAll('.legend')
+					 .remove();
+
+				//Add chart title
+	    		chart.select('.title')
+	    		     .select('text')
+	    		 	 .text('Number of International Visitors to London (in Millions)');
+
+				// Assign scales to domain
+				xScale.domain(data.map(function(d) {return d.year; }));
+				yScale.range([inner_height, 2 * padding.top])
+				      .domain([0, d3.max(data, function(d) {return d.visits; })]);
+
+				// Format yAxis
+				yAxis.tickFormat(function(d) {return Math.round(d / 1e3) + 'M'; });
+
+				// Update axis
+				xAxis.scale(xScale);
+				yAxis.scale(yScale);
+				
+				// Call axis functions on  axis object
+				d3.select('.x')
+				  .call(xAxis);
+
+				d3.select('.y')
+				  .transition()
+				  .duration(500)
+				  .call(yAxis);
+
+				// Bind data
+				var bars = chart.selectAll('rect')
+				    		    .data(data);
+
+				// Update enter selection
+				bars.enter()
+				    .append('rect')
+				    .attr('class', 'bar visits')
+				    .attr('x', function(d) {
+				    	
+				    	return xScale(d.year);
+				    })
+				    .attr('width', xScale.rangeBand())
+				    .attr('y', inner_height)
+				    .attr('height', 0)
+				    .style('fill', '#678ffb');
+
+				bars.style('fill', '#678ffb');
+				
+				// Update and Enter
+				bars.transition()
+					.delay(function(d, i) {
+						return i / data.length * 500;
+					})
+				    .duration(500)
+				    .attr('y', function(d) {
+				    	return yScale(d.visits);
+				    })
+				    .attr('height', function(d) {
+				    	return inner_height - yScale(d.visits);
+				    });
+
+				// Remove exit
+				bars.exit()
+					.remove();
+
+				// Tooltip when overing over bars
+				chart.selectAll('rect')
+				     .on('mouseover', function(d) {
+				     	
+				     	// Extract x position
+				     	var x_pos = parseFloat(d3.select(this).attr('x'));
+
+				     	// Center the tooltip within the bar
+				     	d3.select("#tooltip")
+							.style("left", (x_pos - (width_tooltip - xScale.rangeBand()) / 2) + "px")
+							.style("top", (inner_height - 3.5 * padding.bottom) + 'px')
+							.style("width", width_tooltip + 'px')
+
+						// Add title to tooltip
+						d3.select('#tooltip-title')
+						  .text(d.year);
+
+						// Add value to tooltip
+						d3.select("#tooltip-value")
+						  .text(format_visit(d.visits));
+
+						// Make tooltip visible
+						d3.select('#tooltip')
+						  .classed('hidden', false);
+
+						// Format bar chart as selected
+						d3.select(this)
+						  .style('fill', 'orange');
+
+				     })
+				     .on('mouseout', function() {
+				     	// Make tooltip visible
+						d3.select('#tooltip')
+						  .classed('hidden', true);
+
+						// Format bar chart as selected
+						d3.select(this)
+						  .style('fill', '#678ffb');
+				     })
+			};
+
+			// Define draw_purposes function
+			var draw_purposes = function() {
+
+				// Define purporses and categories
+				var purposes = {"Holiday" : "Holiday",
+							    "VFR" : "Visiting Family",
+							    "Business" : "Business",
+							    "Study" : "Study",
+							    "Miscellaneous" : "Other"};
+
+				var categories = Object.keys(purposes);
+
+				// Change chart title
+				chart.select('.title')
+				     .select('text')
+				     .text('Purpose of International Visits to London (% of visitors)')
+
+				// Define layers
+				// Source Mike Bostock d3 stacked bar chart
+				var layers = d3.layout.stack()(categories.map(function(c) {
+						return data.map(function(d) {
+							return {x: d.year, y: +d[c], category:c} ;
+					})
+				}));
+
+				var max_percentage = d3.max(layers[layers.length - 1], function(d) {return d.y + d.y0;});
+
+				// Re-scale yScale
+				yScale.range([inner_height, 6 * padding.top])
+				      .domain([0, max_percentage]);
+
+				// Re-format yAxis
+				yAxis.tickFormat(function(d) {return format_percentage(d); });
+
+				// Update yAxis
+				chart.select('.y')
+				     .transition()
+				     .duration(500)
+				     .call(yAxis);
+
+				// Make existing bars all equal
+				chart.selectAll('.bar')
+				     .transition()
+				     .duration(500)
+				     .attr('y', yScale(max_percentage))
+				     .attr('height', inner_height - yScale(max_percentage))
+				     .each('end', function() {
+				     	d3.select(this).remove();
+				     });
+
+				// Bind data to layer
+				var layer = chart.selectAll(".layer")
+								 .data(layers);
+
+				// Update enter selection
+				layer.enter()
+				     .append("g")
+				     .attr("class", "layer")
+				     .attr('id', function(d) {return d[0].category;})
+				     .style("fill", function(d, i) { return z(i); });
+
+				/*chart.selectAll('.visits')
+				     .remove();*/
+
+				layer.selectAll('rect')
+				     .data(function(d) {return d; })
+				     .enter()
+				     .append('rect')
+				     .attr('x', function(d) {return xScale(d.x); })
+				     .attr('y', function(d) {return yScale(d.y0); })
+				     .attr('width', xScale.rangeBand())
+				     .attr('height', 0)
+				     .style('display', 'none')
+				     .transition()
+				     .duration(500)
+				     .attr('y', function(d) {return yScale(d.y0 + d.y); })
+				     .attr('height', function(d) {return yScale(d.y0) - yScale(d.y + d.y0) ;})
+				     .style('display', 'block')
+
+				//Add legend
+				var legend = chart.append('g')
+								  .attr('class', 'legend')
+								  .selectAll('g')
+								  .data(categories)
+								  .enter()
+								  .append('g');
+
+				// Starting position for legend
+				var legend_start = xScale(d3.min(data, function(d) {return d.year; })) + xScale.rangeBand() / 2;
+				var distance = 80;
+				
+				legend.append('circle')
+					  .attr('cx', function(d, i) {
+					  	return legend_start +  i * distance;
+					  })
+					  // Every circle is classed as the name of the categories and legend_circle
+					  .attr('class', function(d, i) {
+					  	return categories[i] + ' legend_circle';
+					  })
+					  .attr('cy', 4 * padding.top)
+					  .attr('r', 10)
+					  .style('fill', function(d, i) {
+					  	return z(i);
+					  });
+
+				legend.append('text')
+					  .attr('class', 'legend_text')
+				      .attr('x', function(d, i) {
+					  	return legend_start +  i * distance;
+					  })
+					  .attr('y', 3 * padding.top)
+					  .text(function(d) {
+					  	return purposes[d];
+					  });
+
+				// Apply mouseover effects to legend_circle
+				chart.selectAll('.legend_circle')
+					 .on('mouseover', function() {
+					 	
+					 	var id = this.classList[0];
+
+					 	chart.selectAll('rect')
+					 	     .style('opacity', function(d) {
+					 	     	if (d.category !== id) {
+					 	     		return 0.3;
+					 	     	}
+					 	     })
+					 })
+					 .on('mouseout', function() {
+					 	chart.selectAll('rect')
+					 		 .style('opacity', 1);
+					 })
+
+
+
+			};
+
+			draw_visits(data);
+
+			d3.select('#visits').on('click', draw_visits);
+			d3.select('#purpose').on('click', draw_purposes);
+			/*d3.select('#remove').on('click', remove_rects);*/
+
+		});
+
+	</script>
+</body>
+</html>
