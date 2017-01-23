@@ -99,38 +99,10 @@ function trends(story) {
 		    
 		    // Add mouseover and mouseout effects
 		    bars.on('mouseover', function(d) {
-		    	
-		    	// Extract x position
-		    	var xPos = parseFloat(d3.select(this).attr('x'));
-
-		    	// Calculate left and top for tooltip
-		    	var left = xPos - (tooltipWidth - xScale.rangeBand()) / 2
-		    	var top = innerHeight - 3.5 * padding.bottom;
-
-		    	// Change tooltip position
-		    	changeTooltipPosition(left, top);
-
-		    	// Change tooltip's title and value
-		    	changeTooltipTitle(d.year);
-		    	changeTooltipValue(formatMill(d.visits));
-
-		    	// Change tooltip width
-		    	changeTooltipWidth(80);
-
-		    	// Make tooltip visible and change style
-		    	changeTooltipClass('hidden', false);
-		    	changeTooltipClass('focus-bar', true);
-		    	
-		    	// Make bar focus
-		    	d3.select(this).classed('focus', true)
+		    	barOver(d, d3.select(this), tooltipWidth);
 		    })
-		    .on('mouseout', function(d) {
-
-		    	// Make tooltip invisile
-		    	changeTooltipClass('hidden', true);
-
-		    	// Reset bar color
-		    	d3.select(this).classed('focus', false);
+		    .on('mouseout', function() {
+		    	barOut(d3.select(this));
 		    })
 		};
 
@@ -240,29 +212,8 @@ function trends(story) {
 			// Problem of JS taking precedence over CSS
 			// http://stackoverflow.com/questions/15709304/d3-color-change-on-mouseover-using-classedactive-true
 			area.selectAll('.purpose-box')
-				.on('mouseover', function() {
-
-					// Extract purpose
-					var selectedPurpose = this.parentElement.classList[0];
-
-					// Change class based on selection
-					area.selectAll('.purpose')
-					    .classed('unfocused', function() {
-							if(this.classList[0] != selectedPurpose) {
-								return true;
-							};
-						})
-						.classed('focused', function() {
-							if(this.classList[0] == selectedPurpose) {
-								return true;
-							};
-						});
-				})
-				.on('mouseout', function() {
-					area.selectAll('.purpose')
-						.classed('unfocused', false)
-						.classed('focused', false);
-				})
+				.on('mouseover', purposeBoxOver)
+				.on('mouseout', purposeBoxOut);
 		}
 	});
 };

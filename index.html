@@ -62,6 +62,9 @@
 		     .append('text')
 		     .style("text-anchor", "start");
 
+		// Start with first visulisation
+		trends(1);
+
 		// Add click behaviour to buttons
 		d3.select('#visits')
 		  .on('click', function() {

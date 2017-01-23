@@ -46,6 +46,13 @@ function roundUpThousand(value) {
 	return Math.ceil(value / 1e2) * 1e2;
 };
 
+/*http://bl.ocks.org/eesur/4e0a69d57d3bfc8a82c2*/
+//https://developer.mozilla.org/en/docs/Web/API/Node/appendChild
+d3.selection.prototype.moveToFront = function() {  
+	return this.each(function() {
+        this.parentNode.appendChild(this);
+    });
+};
 
 // ### DATA PARSING ###
 // Trends
@@ -60,7 +67,7 @@ function parseTrends(data) {
 // Map
 function parseMap(data) {
 	for (var key in data) {
-		if ((key!= 'year') && (key!='market')) {
+		if (key == 'value') {
 			data[key] = +data[key];
 		}
 	}
@@ -78,19 +85,19 @@ function removeObjs(object) {
 function changeTooltipTitle(newTitle) {
 	d3.select('#tooltip-title')
 	  .text(newTitle);
-}
+};
 
 // Change tooltip value
 function changeTooltipValue(newValue) {
 	d3.select('#tooltip-value')
 	  .text(newValue);
-}
+};
 
 // Change tooltip width
 function changeTooltipWidth(newValue) {
 	d3.select('#tooltip')
 	  .style('width', newValue + 'px');
-}
+};
 
 // Change tooltip class
 function changeTooltipClass(classed, boolean) {
@@ -109,11 +116,24 @@ function changeTooltipPosition(left, top) {
 // Axis scales
 var xScale = d3.scale.ordinal();
 var yScale = d3.scale.linear();
+var yearBoxScale = d3.scale.linear();
+var legendScale = d3.scale.linear().range([0,1]);
+
+// Update yearBoxScale
+function updateYearBoxScale(yearBox, years) {
+	
+	// Get BBox of yearBox
+	var box = yearBox.node().getBBox();
+
+	// Define domain and range of yearScale
+	yearBoxScale.domain([years[0], years[years.length - 1]])
+			 .range([box.x + 5, box.x + box.width - 20]);
+
+};
 
 // Color scales
 var trendColor = d3.scale.ordinal().range(colorbrewer.Set1[5]);
 var mapColor = d3.scale.linear().range([0,1]);
-
 
 // ### D3 AXIS ###
 var xAxis = d3.svg.axis().orient('bottom');
@@ -126,8 +146,8 @@ var line = d3.svg.line()
 
 // ### PROJECTIONS ###
 var mapProjection = d3.geo.mercator()
-					  .scale(110)
-					  .translate([outerWidth/1.7, outerHeight/1.35]);
+					  .scale(105)
+					  .translate([outerWidth/1.65, outerHeight/1.4]);
 var mapPath = d3.geo.path().projection(mapProjection);
 
 // ### CREATE PURPOSE OBJECT ###
@@ -194,19 +214,15 @@ function extractNested(data) {
 			 .entries(data);
 };
 
-// Extract unique values from array of objects
-function extractUniques(data, field) {
-	var uniques = d3.set();
-
+// Extract years from geo dataset
+function extractYears(data) {
+	years = d3.set();
 	data.forEach(function(d) {
-		uniques.add(d[field]);
-	});
+		years.add(d.year);
+	})
+	return years.values();
+}
 
-	var uniques = uniques.values();
-
-	return uniques;
-
-};
 
 // ### MERGE DATASETS ***
 // Add visitors to data to geoJSON
@@ -233,6 +249,201 @@ function addDataToMap(data, map) {
 };
 
 // ### UPDATE MAP ###
+// Interpolate mapColor in Blue continous scale
+function countryInterpolate(value) {
+	return d3.interpolateBlues(mapColor(value));
+};
+
+function legendInterpolate(value) {
+	return d3.interpolateBlues(legendScale(value));
+}
+
+// Update countries fill with transition
+function countriesTransition(countries, year) {
+	countries.transition()
+			 .duration(50)
+			 .style('fill', function(d) {
+			 	if(d.properties.visitors) {
+			 		if(d.properties.visitors[year]) {
+			 			return countryInterpolate(d.properties.visitors[year]);
+			 		};
+			 	};
+			 });
+};
+
+function yearTransition(yearBox, year) {
+	yearBox.transition()
+		   .duration(50)
+		   .text(year);
+};
+
+function updateMap(countries, yearBox, year) {
+
+	// Update countries fill
+	countriesTransition(countries, year);
+
+	// Update year
+	yearTransition(yearBox, year);
+
+};
+
+// ### OBJECT APPENDING ###
+// Append map yearBox
+function appendYearBox() {
+	return area.append('text')
+	    	   .attr('x', 5 * padding.right)
+	    	   .attr('y', 0.88 * outerHeight)
+	    	   .attr('class', 'map year')
+};
+
+function appendLegend() {
+	return area.append('g')
+			   .attr('class', 'map legend')
+			   .attr('transform', 'translate(' + (5.2 * padding.right) + ',' + (0.88 * outerHeight + 25) + ')');
+};
+
+
+// ### LEGEND MANAGING ###
+function formatLegend(legend) {
+
+	// Define legendData
+	var legendData = [];
+	for (var i = 0; i < 150; i += 1) {
+		legendData.push(i);
+	};
+
+	// Update legend scale
+	legendScale.domain([0, legendData.length - 1]);
+	
+	// Add legend sections
+	legend.append('g')
+		  .attr('class', 'legend-bar')
+		  .selectAll('rect')
+		  .data(legendData)
+		  .enter()
+		  .append('rect')
+		  .attr('x', function(d) {return d})
+		  .attr('y', '5')
+		  .attr('height', '10')
+		  .attr('width', '1')
+		  .attr('fill', function(d, i) {
+		  	return legendInterpolate(i);
+		  });
+
+	// Append title
+	legend.append('text')
+		  .attr('class', 'legend-title')
+		  .text('International Visitors to London');
+
+	// Append min
+	legend.append('text')
+		  .attr('class', 'legend-range min')
+		  .text(0)
+		  .attr("transform","translate(0" +',' + 30 + ')');
+
+	// Append max
+	legend.append('text')
+		  .attr('class', 'legend-range')
+		  .text(formatMap(mapColor.domain()[1]))
+		  .attr("transform","translate(" + 150 +',' + 30 + ')');
+
+};
+
+
+// ### MOUSE EFFECTS ###
+// Bar mouseover
+function barOver(d, selected, tooltipWidth) {
+	
+	// Extract x position
+	var xPos = parseFloat(selected.attr('x'));
+	
+	// Calculate left and top for tooltip
+	var left = xPos - (tooltipWidth - xScale.rangeBand()) / 2
+	var top = innerHeight - 3.5 * padding.bottom;
+
+	// Change tooltip position
+	changeTooltipPosition(left, top);
+
+	// Change tooltip's title and value
+	changeTooltipTitle(d.year);
+	changeTooltipValue(formatMill(d.visits));
+
+	// Change tooltip width
+	changeTooltipWidth(80);
+
+	// Make tooltip visible and change style
+	changeTooltipClass('hidden', false);
+	changeTooltipClass('focus-bar', true);
+	
+	// Make bar focus
+	selected.classed('focus', true)
+};
+
+// Bar mouseout
+function barOut(selected) {
+
+	// Make tooltip invisile
+	changeTooltipClass('hidden', true);
+
+	// Reset bar color
+	selected.classed('focus', false);
+};
+
+// Purpose box mouseover
+function purposeBoxOver() {
+	// Move selection to fron
+	d3.select(this.parentElement).moveToFront();
+
+	// Extract purpose
+	var selectedPurpose = this.parentElement.classList[0];
+
+	// Change class based on selection
+	area.selectAll('.purpose')
+	    .classed('unfocused', function() {
+			if(this.classList[0] != selectedPurpose) {
+				return true;
+			};
+		})
+		.classed('focused', function() {
+			if(this.classList[0] == selectedPurpose) {
+				return true;
+			};
+		});
+};
+
+// Purpose box mouseout
+function purposeBoxOut() {
+	area.selectAll('.purpose')
+		.classed('unfocused', false)
+		.classed('focused', false)
+};
+
+// Yearbox mousemove
+function yearBoxMove(yearBox, mouseValue, countries) {
+
+	// Cancel current transition if any
+	area.transition().duration(0);
+
+	// Extract year using yearBoxScale
+	var yearValue = Math.round(yearBoxScale.invert(mouseValue[0]));
+
+	// Trim yearValue
+	if(yearValue < 2002) {
+		return 2002;
+	} else if (yearValue > 2015) {
+		return 2015
+	};
+
+	// Change text of yearBox
+	yearBox.transition()
+			.duration(150)
+			.text(yearValue);
+
+	// Update map
+	updateMap(countries, yearBox, yearValue.toString());
+};
+
+
 
 
 

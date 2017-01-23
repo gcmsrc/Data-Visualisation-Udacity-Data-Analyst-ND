@@ -34,6 +34,26 @@
 	display: none;
 }
 
+.legend-range {
+	font-family: 'Roboto Condensed', sans-serif;
+	font-weight: 300i;
+	font-size: 12px;
+	text-anchor: end;
+	fill: #beb7b7;
+}
+
+.legend-title {
+	font-family: 'Roboto Condensed', sans-serif;
+	font-weight: 400;
+	font-size: 12px;
+	text-anchor: start;
+	fill: grey;
+}
+
+.legend-range.min{
+	text-anchor: start;
+}
+
 .line {
 	fill: none;
 }
@@ -113,6 +133,14 @@
 
 #tooltip-title {
 	font-weight: 700;
+}
+
+.year {
+	font-family: 'Roboto Condensed', sans-serif;
+	font-weight: 300;
+	font-size: 80px;
+	fill: grey;
+	cursor: ew-resize;
 }
 
 
