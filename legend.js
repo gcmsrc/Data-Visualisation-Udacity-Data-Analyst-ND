@@ -45,7 +45,7 @@ function legend_Add() {
 		  .attr('class', 'legend-range min')
 		  .text(0)
 		  .attr("transform","translate(0" +',' + 30 + ')');
-
+	
 	// Append max
 	legend.append('text')
 		  .attr('class', 'legend-range')

@@ -10,6 +10,7 @@ function map() {
 	// Change tooltip classes
 	utility_ChangeClass('#tooltip', 'trend', false);
 	utility_ChangeClass('#tooltip', 'map', true);
+	utility_ChangeClass('#tooltip', 'hidden', false);
 
 	// Change tooltipWidth to 200 px
 	ttip_ChangeWidth(200);
@@ -30,21 +31,17 @@ function map() {
 	   				  .attr('y', 0.88 * outerHeight)
 	   				  .attr('class', 'map year')
 
-	//http://bl.ocks.org/lucguillemot/37cc6eccbdd365556feb
-	// Format legend
-	legend_Add();
-
 	// Append focus
 	var focus = area.append('g')
 	  				.attr('id', 'focus')
-	  				.attr('class', 'map hidden')
+	  				.attr('class', 'map')
 	  				.attr('transform', 'translate(' + (5.2 * padding.right) + ',' + (0.6 * outerHeight) + ')');
 
 	// File downloaded from natural earth data as per Scott Murray
 	// File was simplified with mapshaper
 	// coropleth chapter from Scott Murray
 	d3.csv('dataset_geo.csv', parse_Map, function(data) {
-		
+
 		// Extract years
 		var years = extract_Years(data);
 
@@ -86,6 +83,10 @@ function map() {
 		/*Update mapColor domain (max is the maximum number of 
 		international visitors from a country throughout history)*/
 		mapColor.domain([0, format_RoundUpThousand(extract_MaxMax(nested))]);
+
+		//http://bl.ocks.org/lucguillemot/37cc6eccbdd365556feb
+		// Format legend
+		legend_Add();
 		
 		/*Convert nested values from array of objects to a single
 		object, where keys are represented by the years*/
@@ -120,6 +121,80 @@ function map() {
 							    .attr('d', mapPath)
 							    .attr('class', 'map country');
 
+			// Change tooltip value based on countryData
+			function newTtipValue(countryData, year) {
+
+				if(countryData[year]) {
+
+					return format_Units(countryData[year]);
+
+				} else {
+
+					return 'N/A';
+
+				}
+			};
+
+			// Create focus mini chart, i.e. a line chart with a circle for a given year
+			function appendFocusChart(country, year) {
+				
+				// Remove any existing focus line
+				utility_RemoveObjs('.focus-line');
+
+				// Remove any existing focus circle
+				utility_RemoveObjs('.focus-circle');
+
+				// Extract countryData
+				var countryData = extract_CountryData(countries, country);
+
+				// Change tooltip value
+				ttip_ChangeValue(newTtipValue(countryData, year));
+
+				// Convert to focusData
+				var focusData = convert_CountryData(countryData);
+
+				// Update yScale
+				yScale.domain([
+						d3.max(focusData, function(d) {
+							return d.value;
+						}),
+						d3.min(focusData, function(d) {
+							return d.value;
+						})]);
+				
+				// Update yAxis scale
+				yFocusAxis.scale(yScale)
+
+				// Call yAxis
+				focus.select('.focus-y').call(yFocusAxis);
+
+				// Append focus line
+				focus.append('path')
+					 .attr('d', line(focusData))
+					 .attr('class', 'focus-line');
+
+				// Append circle
+				focus.append('circle')
+					 .attr('r', 4)
+					 .attr('class', 'focus-circle')
+					 .attr('cx', function() {
+					 	
+					 	return xScale(year) + xScale.rangeBand() / 2;
+
+					 })
+					 .attr('cy', function() {
+					 	
+					 	return yScale(countryData[year])
+
+					 });
+			};
+
+			// Start with the US
+			ttip_ChangeTitle('United States of America');
+
+			// Append focusChart
+			appendFocusChart(d3.select('#tooltip-title').node().textContent, years[0]);
+
 			// Initialise chart
 			updateMap(years[0]);
 
@@ -143,38 +218,22 @@ function map() {
 				yearBox.transition()
 					   .duration(50)
 					   .text(year);
+	
+				// Extract name of country in tooltip
+				var country = d3.select('#tooltip-title').node().textContent;
 
-				// Update focus and tooltip content
-				if(d3.select('#tooltip-value').node().textContent != '') {
-					
-					// Extract name of country in tooltip
-					var country = d3.select('#tooltip-title').node().textContent;
+				// Extract country data
+				var countryData = extract_CountryData(countries, country);
 
-					// Extract country data
-					var countryData = extract_CountryData(countries, country);
-
-					// Update tooltip-value
-					d3.select('#tooltip-value')
-					  .transition()
-					  .duration(500)
-					  .text(function() {
-
-					  	if(countryData[year]) {
-
-					  		return format_Units(countryData[year]);
-
-					  	} else {
-
-					  		return 'N/A';
-					  	};
-
-					  });
-				};
-
+				
+				// Update tooltip-value
+				d3.select('#tooltip-value')
+				  .transition()
+				  .duration(500)
+				  .text(newTtipValue(countryData, year));
+			
 				// Update circle
-				if(focus.select('circle').node()) {
-					
-					focus.select('circle')
+				focus.select('circle')
 					     .transition()
 					     .duration(50)
 					     .attr('cx', xScale(year) + xScale.rangeBand()/2)
@@ -199,126 +258,40 @@ function map() {
 
 					     	}
 					     });
-				};
 
 				// Add countries mouseover and click effect
 				countries.on('mouseover', function(d) {
 
 							if(d.properties.visitors) {
+									
+								// Change the cursor
+								d3.select(this).style('cursor', 'pointer');
 
-								if(d.properties.visitors[year]) {
-
-									// Change the cursor
-									d3.select(this).style('cursor', 'pointer');
-								};
 							};
+
 						  })
 						  .on('click', function(d) {
 
-						  	//http://bl.ocks.org/d3noob/5d621a60e2d1d02086bf
-							// Define previous clicked country (default is null)
-
-							if(d3.select('#tooltip-title').node().textContent != '') {
-
-								var previousCountry = d3.select('#tooltip-title')[0][0].textContent;
-
-							} else {
-
-								var previousCountry = null;
-
-							};
+						  	// Define previous country value
+						  	var previousCountry = d3.select('#tooltip-title')[0][0].textContent;
 
 							// Extract clicked state
 							var clickedCountry= d.properties.name;
-							
-							// Extract countryData
-							var countryData = extract_CountryData(countries, clickedCountry)
-							
-							// Convert countryData
-							var focusData = convert_CountryData(countryData);
-							
-							// Update yScale
-							yScale.domain([
-									d3.max(focusData, function(d) {
-										return d.value;
-									}),
-									d3.min(focusData, function(d) {
-										return d.value;
-									})]);
-								
-							// Update yAxis scale
-							yFocusAxis.scale(yScale)
 
-							// Call yAxis
-							d3.select('.focus-y').call(yFocusAxis);
+							// Change tooltip title
+							ttip_ChangeTitle(clickedCountry);
 
 							// Change focus and tooltip based on country value
-							if(clickedCountry == previousCountry) {
-
-								// Make tooltip invisible
-								utility_ChangeClass('#tooltip', 'hidden', true);
-
-								// Make focus invisible
-								utility_ChangeClass('#focus', 'hidden', true);
-
-								// Make tooltip title and value null
-								ttip_ChangeTitle('');
-								ttip_ChangeValue('');
-
-								// Remove circle
-								utility_RemoveObjs('.focus-circle');
-
-
-							} else {
+							if(clickedCountry != previousCountry) {
 
 								if(d.properties.visitors) {
 
-									// Check if value for that year is available
-									if(d.properties.visitors[year]) {
-
-										// Change tooltip title and value
-										ttip_ChangeTitle(clickedCountry);
-										ttip_ChangeValue(format_Units(d.properties.visitors[year]));
-
-										// Logic to display tooltip
-										if(previousCountry != clickedCountry) {		
-
-											// Remove any existing focus line
-											utility_RemoveObjs('.focus-line');
-
-											// Remove any existing focus circle
-											utility_RemoveObjs('.focus-circle');
-
-											// Make tooltip visible
-											utility_ChangeClass('#tooltip', 'hidden', false);
-
-											// Make focus visible
-											utility_ChangeClass('#focus', 'hidden', false);
-
-											// Append focus line
-											focus.append('path')
-												 .attr('d', line(focusData))
-												 .attr('class', 'focus-line');
-
-											// Append circle
-											focus.append('circle')
-												 .attr('r', 4)
-												 .attr('class', 'focus-circle')
-												 .attr('cx', function() {
-
-												 	return xScale(year) + xScale.rangeBand() / 2;
-
-												 })
-												 .attr('cy', function() {
-												 	
-												 	return yScale(countryData[year])
-
-												 });
-										};
-									};
+									// Append focusChart
+									appendFocusChart(clickedCountry, year);
+									
 								};
 							};
-						  });
+				  		  });
 			};
 
 			// Add yearBox mousemove effect
@@ -339,6 +312,11 @@ function map() {
 
 					yearValue = years[years.length -1];
 
+				} else {
+
+					// Conver number to string
+					yearValue = yearValue.toString();
+
 				};
 
 				// Change text of yearBox
@@ -351,5 +329,4 @@ function map() {
 			});
 		});
 	});
-
 };

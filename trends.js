@@ -11,6 +11,7 @@ function trends(story) {
 	// Change tooltip classes
 	utility_ChangeClass('#tooltip', 'trend', true);
 	utility_ChangeClass('#tooltip', 'map', false);
+	utility_ChangeClass('#tooltip', 'hidden', true);
 
 	// Define tooltip width
 	var tooltipWidth = 80;
@@ -105,9 +106,9 @@ function trends(story) {
 		    
 		    // Add mouseover and mouseout effects
 		    bars.on('mouseover', function(d) {
-
+		    	
 		    	// Extract x position
-				var xPos = parseFloat(d3.select(this).attr('x'));
+				var xPos = this.getAttribute('x');
 				
 				// Calculate left and top for tooltip
 				var left = xPos - (tooltipWidth - xScale.rangeBand()) / 2
