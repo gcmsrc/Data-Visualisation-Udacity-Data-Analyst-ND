@@ -5,40 +5,28 @@
 	<title>DAND - Data Viz</title>
 	<script src="https://d3js.org/d3.v3.min.js"></script>
 	<script src="https://d3js.org/colorbrewer.v1.min.js"></script>
-	<!-- https://github.com/d3/d3-scale-chromatic -->
 	<script src="https://d3js.org/d3-color.v1.min.js"></script>
 	<script src="https://d3js.org/d3-interpolate.v1.min.js"></script>
 	<script src="https://d3js.org/d3-scale-chromatic.v1.min.js"></script>
-
-	<script type="text/javascript" src='setup.js'></script>
-	<script type="text/javascript" src='format.js'></script>
-	<script type="text/javascript" src='utility.js'></script>
-	<script type="text/javascript" src='parse.js'></script>
-	<script type="text/javascript" src='ttip.js'></script>
-	<script type="text/javascript" src='create.js'></script>
-	<script type="text/javascript" src='extract.js'></script>
-	<script type="text/javascript" src='convert.js'></script>
-	<script type="text/javascript" src='legend.js'></script>
-
-	<script type="text/javascript" src='trends.js'></script>
-	<script type="text/javascript" src='map.js'></script>
-	
+	<!--CUSTOM SCRIPTS-->
+	<script type="text/javascript" src='js/setup.js'></script>
+	<script type="text/javascript" src='js/format.js'></script>
+	<script type="text/javascript" src='js/utility.js'></script>
+	<script type="text/javascript" src='js/parse.js'></script>
+	<script type="text/javascript" src='js/create.js'></script>
+	<script type="text/javascript" src='js/extract.js'></script>
+	<script type="text/javascript" src='js/convert.js'></script>
+	<script type="text/javascript" src='js/legend.js'></script>
+	<script type="text/javascript" src='js/trends.js'></script>
+	<script type="text/javascript" src='js/map.js'></script>
 	<link href="https://fonts.googleapis.com/css?family=Roboto+Condensed:300,300i,400,400i,700" rel="stylesheet">
-	<link rel="stylesheet" type="text/css" href="newstyle.css">
+	<!--CUSTOM STYLESHEET-->
+	<link rel="stylesheet" type="text/css" href="css/newstyle.css">
 </head>
 <body>
-	
-	<!--Tooltip as per Scott Murray-->
-	<div id="tooltip" class='hidden trend map'>
-		<p><span id='tooltip-title'></span></p>
-		<p><span id='tooltip-value'></span></p>
-	</div>
 
 	<script type="text/javascript">
 
-    	//----------------------------------------------------------//
-
-		// *** CHART AND DRAWING AREA ***
 		// Add chart
 		var chart = d3.select("body")
 					  .append("svg")
@@ -46,32 +34,57 @@
 					  .attr("height", outerHeight)
 					  .append('g');
 
+		// Append buttons		
+		chart.selectAll('circle')
+		     .data(['visits', 'purpose', 'origin'])
+		     .enter()
+		     .append('circle')
+		     .attr('id', function(d) {return d;})
+		     .attr('class', 'button')
+		     .attr('cx', function(d, i) {
 
-		// TEST: Append chart buttons
-		var buttons = ['visits', 'purpose', 'origin'];
-		chart.selectAll('text')
-			 .data(buttons)
-			 .enter()
-			 .append('text')
-			 .attr('class', 'button')
-			 .attr('x', function(d, i) {
-			 	return 0.7 * innerWidth + i * 60;
-			 })
-			 .attr('y', 1.2 * padding.top)
-			 .attr('id', function(d) {return d;})
-			 .text(function(d) {
-			 	return d;
-			 });
+		     	return 0.88 * outerWidth + i * 20;
+		     	
+		     })
+		     .attr('cy', 1.2 * padding.top)
+		     .attr('r', 8)
+		     .on('mouseover', function() {
+
+		     	d3.select(this).style('cursor', 'pointer');
+
+		     })
 
 		// Add drawing area
 	    var area = chart.append('g')
 	    		        .attr('class', 'area');
+
 		// Append title
 		chart.append('g')
 		     .attr('id', 'title')
-		     .attr('transform', 'translate(' + (3 * padding.left) + ',' + (1.3 * padding.top) + ')')
+		     .attr('transform', 'translate(' + (3 * padding.left) + ',' + (1.5 * padding.top) + ')')
 		     .append('text')
+		     .style("text-anchor", "start")
+		     .text('Three facts about international visitors to London');
+
+		// Append subtitle box
+		chart.append('g')
+			 .attr('transform', 'translate(' + (3 * padding.left) + ',' + (2.8 * padding.top) + ')')
+			 .append('text')
+			 .attr('class', 'subtitle')
 		     .style("text-anchor", "start");
+
+		// Apend comment box
+		chart.append('g')
+			 .attr('transform', 'translate(' + (3 * padding.left) + ',' + (3.6 * padding.top + 2) + ')')
+			 .attr('class', 'comment');
+
+		// Append source
+		chart.append('g')
+			 .attr('transform', 'translate(' + (width - 50) + ',' + (height + 30)  + ')')
+			 .append('text')
+			 .attr('class', 'source')
+			 .text('Source: data.london.gov.uk')
+			 .style('text-anchor', 'end');
 
 		// Start with first visulisation
 		trends(1);
@@ -89,9 +102,8 @@
 		d3.select('#origin')
 		  .on('click', function() {
 		  	map();
-		  })
+		  });
 
-		
 	</script>
 </body>
 </html>
